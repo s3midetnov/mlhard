@@ -31,7 +31,7 @@ class GwFontsDataset(Dataset):
             npr.choice(a=self.alphabet_len, size=self.dataset_len)
 
         self.style_coord = \
-            npr.choice(a=self.font_len, size=self.dataset_len, replace=False)
+            npr.choice(a=self.font_len, size=self.dataset_len, replace=self.dataset_len >= self.font_len)
 
         self.style_coord_samples = np.zeros(shape=(self.dataset_len, self.nsamples), dtype=int)
         for i in range(self.dataset_len):
@@ -83,17 +83,15 @@ class GwFontsDataset(Dataset):
                 for r in range(self.nsamples)
             ])
 
-        return (content_samples, style_samples), pict
+        return (content_samples.to(dtype=float) / 255, style_samples.to(dtype=float) / 255), pict.to(dtype=float) / 255
 
 
-def create_gw_data(nsamples=10):
+def create_gw_data(nsamples=10, dataset_lens=(10000, 2000)):
+    return GwFontsDataset(train=True, nsamples=nsamples, dataset_len=dataset_lens[0]), \
+        GwFontsDataset(train=False, nsamples=nsamples, dataset_len=dataset_lens[1])
 
-    return GwFontsDataset(train=True, nsamples=nsamples, dataset_len=800), \
-        GwFontsDataset(train=False, nsamples=nsamples, dataset_len=200)
 
-
-def create_gw_loaders(nsamples=10, batch_size=4):
-    data = create_gw_data(nsamples)
-
+def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000)):
+    data = create_gw_data(nsamples, dataset_lens)
     return DataLoader(data[0], batch_size=batch_size, shuffle=True), \
         DataLoader(data[1], batch_size=batch_size, shuffle=False)
