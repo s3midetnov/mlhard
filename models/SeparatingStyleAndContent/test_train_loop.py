@@ -70,15 +70,17 @@ def train_test_routine(
 
             if show_graphs:
                 clear_output()
-                _, (sp1, sp2) = plt.subplots(1, 2)
+                _, (sp1, sp2, sp3) = plt.subplots(1, 4)
                 with torch.no_grad():
                     for (content_b, style_b), target_b in tqdm(iterable=testloader,
                                                                desc=f"Epoch {epoch}: test") if show_graphs else testloader:
                         content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
                         output_b = model(content_b, style_b)
                         sp2.imshow(output_b[0].permute(1, 2, 0).to("cpu"), cmap='gray')
+                        sp3.imshow(target_b[0].permute(1, 2, 0).to("cpu"), cmap='gray')
                         break
                 sp1.plot(np.arange(1, epoch + 1), test_per_batch_losses)
+                sp1.plot(np.arange(1, epoch + 1), train_per_batch_losses)
                 plt.show()
 
     loop()

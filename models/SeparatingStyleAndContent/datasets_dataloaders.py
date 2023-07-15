@@ -93,6 +93,14 @@ def create_gw_data(nsamples=10, dataset_lens=(10000, 2000), directory: str = "..
 
 def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000),
                       directory: str = "../../datasets/gwfonts/converted/"):
+    """
+    :param nsamples: the amount of style and content references for one target image
+    :param batch_size: size of one batch in the dataset
+    :param dataset_lens: tuple of two ints, amounts of target images in train and test datasets respectively
+    :param directory: directory where dataset is saved
+    :return: tuple of two dataloaders, iteration yields tuples
+            ((content references batch, style references batch), targets batch)
+    """
     data = create_gw_data(nsamples, dataset_lens, directory)
     return DataLoader(data[0], batch_size=batch_size, shuffle=True), \
         DataLoader(data[1], batch_size=batch_size, shuffle=False)
