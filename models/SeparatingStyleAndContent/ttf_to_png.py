@@ -1,8 +1,6 @@
 import os
-
 from PIL import Image, ImageFont, ImageDraw
 from pathlib import Path
-
 import numpy.random as npr
 
 
@@ -36,12 +34,8 @@ def ttf_to_pngs(filename: str | Path, train=True):
     for character in adequate_chars:
         image = Image.new(mode='L', size=(80, 80), color=256)
         draw = ImageDraw.Draw(image)
-
-        # print(path.as_posix())
         font = ImageFont.truetype(path.as_posix(), size=70)
-
-        _x, _y, x, y = draw.textbbox((0, 0), text=character, font=font)
-        # print(_x, _y, x, y)
+        _, _, x, y = draw.textbbox((0, 0), text=character, font=font)
         draw.text(xy=((80 - x) / 2, (80 - y) / 2), text=character, font=font)
 
         image.save(save_folder / f"{path.name[:-4]}_{ord(character)}.png")
@@ -49,7 +43,6 @@ def ttf_to_pngs(filename: str | Path, train=True):
 
 def make_gwpngs(ptest=0.2):
     path = Path("../../datasets/gwfonts")
-    # print(path.as_posix())
     train = 0
     test = 0
     failure = 0
