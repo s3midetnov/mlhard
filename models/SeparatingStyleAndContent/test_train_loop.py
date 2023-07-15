@@ -66,11 +66,11 @@ def train_test_routine(
                 if not Path.is_dir(state_path):
                     state_path.mkdir()
                 torch.save(obj=model, f=state_path / "model.pth")
-                torch.save(obj=model, f=state_path / "optimizer.pth")
+                torch.save(obj=optimizer, f=state_path / "optimizer.pth")
 
             if show_graphs:
                 clear_output()
-                _, (sp1, sp2, sp3) = plt.subplots(1, 4)
+                _, (sp1, sp2, sp3) = plt.subplots(1, 3)
                 with torch.no_grad():
                     for (content_b, style_b), target_b in tqdm(iterable=testloader,
                                                                desc=f"Epoch {epoch}: test") if show_graphs else testloader:
@@ -79,8 +79,9 @@ def train_test_routine(
                         sp2.imshow(output_b[0].permute(1, 2, 0).to("cpu"), cmap='gray')
                         sp3.imshow(target_b[0].permute(1, 2, 0).to("cpu"), cmap='gray')
                         break
-                sp1.plot(np.arange(1, epoch + 1), test_per_batch_losses)
-                sp1.plot(np.arange(1, epoch + 1), train_per_batch_losses)
+                sp1.plot(np.arange(1, epoch + 1), test_per_batch_losses, color='r', label='test')
+                sp1.plot(np.arange(1, epoch + 1), train_per_batch_losses, color='g', label='train')
+                sp1.legend()
                 plt.show()
 
     loop()
