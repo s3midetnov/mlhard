@@ -87,15 +87,6 @@ class SeparatingStyleAndContent(nn.Module):
         content_ims7 = self.content7(content_ims6)
         content_ims8 = self.content8(content_ims7)
 
-        # print(content_ims1.size())
-        # print(content_ims2.size())
-        # print(content_ims3.size())
-        # print(content_ims4.size())
-        # print(content_ims5.size())
-        # print(content_ims6.size())
-        # print(content_ims7.size())
-        # print(content_ims8.size())
-
         style_ims1 = self.style1(style_ims)
         style_ims2 = self.style2(style_ims1)
         style_ims3 = self.style3(style_ims2)
@@ -115,19 +106,12 @@ class SeparatingStyleAndContent(nn.Module):
         result_ims7 = self.decoder7(torch.cat(tensors=(result_ims6, content_ims2), dim=1))
         result_ims8 = self.decoder8(torch.cat(tensors=(result_ims7, content_ims1), dim=1))
 
-        # print(result_ims1.size())
-        # print(result_ims2.size())
-        # print(result_ims3.size())
-        # print(result_ims4.size())
-        # print(result_ims5.size())
-        # print(result_ims6.size())
-        # print(result_ims7.size())
-        # print(result_ims8.size())
-
         return self.sigmoid(result_ims8)
 
 
-def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor):
-    main_loss = nn.L1Loss()
-    return main_loss(output_img_b, true_img_b)
+def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1.):
+    main_loss = torch.sum(nn.L1Loss(reduction='none')(output_img_b, true_img_b), dim=(1, 2, 3))
+    n_of_black = 1. / (torch.sum((true_img_b < 0.01).to(dtype=torch.double), dim=(1, 2, 3)) + epsilon)
+    mean_vs = nn.functional.softmax(torch.mean(true_img_b, dim=(1, 2, 3)), dim=0)
+    return torch.sum(main_loss * n_of_black * mean_vs)
 

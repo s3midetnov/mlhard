@@ -13,7 +13,7 @@ class GwFontsDataset(Dataset):
             train: bool,
             nsamples: int,
             dataset_len: int,
-            converted_dir="../../datasets/gwfonts/converted/"
+            converted_dir: str
     ):
         self.directory = converted_dir + ("train" if train else "test")
         self.font_names = [dirname for dirname in os.listdir(self.directory)]
@@ -86,12 +86,13 @@ class GwFontsDataset(Dataset):
         return (content_samples.to(dtype=float) / 255, style_samples.to(dtype=float) / 255), pict.to(dtype=float) / 255
 
 
-def create_gw_data(nsamples=10, dataset_lens=(10000, 2000)):
-    return GwFontsDataset(train=True, nsamples=nsamples, dataset_len=dataset_lens[0]), \
-        GwFontsDataset(train=False, nsamples=nsamples, dataset_len=dataset_lens[1])
+def create_gw_data(nsamples=10, dataset_lens=(10000, 2000), directory: str = "../../datasets/gwfonts/converted/"):
+    return GwFontsDataset(train=True, nsamples=nsamples, dataset_len=dataset_lens[0], converted_dir=directory), \
+        GwFontsDataset(train=False, nsamples=nsamples, dataset_len=dataset_lens[1], converted_dir=directory)
 
 
-def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000)):
-    data = create_gw_data(nsamples, dataset_lens)
+def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000),
+                      directory: str = "../../datasets/gwfonts/converted/"):
+    data = create_gw_data(nsamples, dataset_lens, directory)
     return DataLoader(data[0], batch_size=batch_size, shuffle=True), \
         DataLoader(data[1], batch_size=batch_size, shuffle=False)
