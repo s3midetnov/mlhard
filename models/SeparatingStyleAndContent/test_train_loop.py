@@ -1,3 +1,4 @@
+
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from pathlib import Path
@@ -30,32 +31,32 @@ def train_test_routine(
     def loop():
         for epoch in range(1, epochs + 1):
             model.train()
-            train_loss = 0.
+            train_loss = torch.tensor(0., dtype=torch.double)
             train_batch = 0.
             for (content_b, style_b), target_b in tqdm(iterable=trainloader,
                                                        desc=f"Epoch {epoch}: train") if show_graphs else trainloader:
                 content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
                 optimizer.zero_grad()
                 output_b = model(content_b, style_b)
-                loss = lossfn(target_b, output_b)
+                loss = lossfn(target_b, output_b, simple=False)
                 train_loss += loss.to("cpu")
                 train_batch += 1
                 loss.backward()
                 optimizer.step()
-            train_per_batch_losses.append(train_loss / train_batch)
+            train_per_batch_losses.append((train_loss / train_batch).item())
 
             model.eval()
-            test_loss = 0.
+            test_loss = torch.tensor(0., dtype=torch.double)
             test_batch = 0.
-            for (content_b, style_b), target_b in tqdm(iterable=testloader,
-                                                       desc=f"Epoch {epoch}: test") if show_graphs else testloader:
-                with torch.no_grad():
+            with torch.no_grad():
+                for (content_b, style_b), target_b in tqdm(iterable=testloader,
+                                                           desc=f"Epoch {epoch}: test") if show_graphs else testloader:
                     content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
                     output_b = model(content_b, style_b)
-                    loss = lossfn(target_b, output_b)
+                    loss = lossfn(target_b, output_b, simple=False)
                     test_loss += loss.to("cpu")
                     test_batch += 1
-            test_per_batch_losses.append(test_loss / test_batch)
+            test_per_batch_losses.append((test_loss / test_batch).item())
 
             if save_each != -1 and epoch % save_each == 0:
                 if type(state_directory) == str:
@@ -69,7 +70,15 @@ def train_test_routine(
 
             if show_graphs:
                 clear_output()
-                plt.plot(np.arange(1, epoch + 1), test_per_batch_losses)
+                _, (sp1, sp2) = plt.subplots(1, 2)
+                with torch.no_grad():
+                    for (content_b, style_b), target_b in tqdm(iterable=testloader,
+                                                               desc=f"Epoch {epoch}: test") if show_graphs else testloader:
+                        content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
+                        output_b = model(content_b, style_b)
+                        sp2.imshow(output_b[0].permute(1, 2, 0).to("cpu"), cmap='gray')
+                        break
+                sp1.plot(np.arange(1, epoch + 1), test_per_batch_losses)
                 plt.show()
 
     loop()

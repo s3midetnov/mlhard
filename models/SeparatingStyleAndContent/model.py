@@ -40,22 +40,20 @@ class SeparatingStyleAndContent(nn.Module):
 
         self.sigmoid = nn.Sigmoid()
 
-    @staticmethod
-    def create_relu():
-        return nn.LeakyReLU(negative_slope=0.2)
-
     def create_encoder_layer(self, out_channels, increase_channels=True, first_layer=False, last_layer=False):
         return nn.Sequential(
             nn.Flatten(1, 2) if first_layer else nn.Identity(),
             nn.Conv2d(
                 kernel_size=3 if not first_layer else 5,
                 stride=2 if not first_layer else 1,
-                in_channels=self.nsamples if first_layer else (out_channels // 2 if increase_channels else out_channels),
+                in_channels=self.nsamples if first_layer else (
+                    out_channels // 2 if increase_channels else out_channels),
                 out_channels=out_channels,
                 dtype=torch.double,
-                padding=1
+                padding=1,
             ),
-            SeparatingStyleAndContent.create_relu(),
+            nn.BatchNorm2d(out_channels, dtype=torch.double),
+            nn.LeakyReLU(negative_slope=0.2),
             nn.Flatten() if last_layer else nn.Identity()
         )
 
@@ -74,7 +72,10 @@ class SeparatingStyleAndContent(nn.Module):
                 padding=1,
                 output_padding=1 if output_padding else 0
             ),
-            self.create_relu() if not last_layer else nn.Identity()
+            nn.Sequential(
+                nn.ReLU(),
+                nn.BatchNorm2d(in_channels // 2 if decrease_channels else in_channels, dtype=torch.double)
+            ) if not last_layer else nn.Identity()
         )
 
     def forward(self, content_ims: torch.Tensor, style_ims: torch.Tensor):
@@ -109,9 +110,10 @@ class SeparatingStyleAndContent(nn.Module):
         return self.sigmoid(result_ims8)
 
 
-def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1.):
+def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1., simple=True):
+    if simple:
+        return nn.L1Loss(reduction='sum')(output_img_b, true_img_b)
     main_loss = torch.sum(nn.L1Loss(reduction='none')(output_img_b, true_img_b), dim=(1, 2, 3))
     n_of_black = 1. / (torch.sum((true_img_b < 0.01).to(dtype=torch.double), dim=(1, 2, 3)) + epsilon)
-    mean_vs = nn.functional.softmax(torch.mean(true_img_b, dim=(1, 2, 3)), dim=0)
+    mean_vs = nn.functional.softmax(1. - torch.mean(true_img_b, dim=(1, 2, 3)), dim=0)
     return torch.sum(main_loss * n_of_black * mean_vs)
-
