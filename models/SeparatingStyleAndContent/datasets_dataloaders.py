@@ -86,13 +86,12 @@ class GwFontsDataset(Dataset):
         return (content_samples.to(dtype=float) / 255, style_samples.to(dtype=float) / 255), pict.to(dtype=float) / 255
 
 
-def create_gw_data(nsamples=10, dataset_lens=(10000, 2000), directory: str = "../../datasets/gwfonts/converted/"):
+def create_gw_data(directory: str, nsamples=10, dataset_lens=(10000, 2000)):
     return GwFontsDataset(train=True, nsamples=nsamples, dataset_len=dataset_lens[0], converted_dir=directory), \
         GwFontsDataset(train=False, nsamples=nsamples, dataset_len=dataset_lens[1], converted_dir=directory)
 
 
-def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000),
-                      directory: str = "../../datasets/gwfonts/converted/"):
+def create_gw_loaders(directory: str, nsamples=10, batch_size=4, dataset_lens=(10000, 2000)):
     """
     :param nsamples: the amount of style and content references for one target image
     :param batch_size: size of one batch in the dataset
@@ -101,6 +100,6 @@ def create_gw_loaders(nsamples=10, batch_size=4, dataset_lens=(10000, 2000),
     :return: tuple of two dataloaders, iteration yields tuples
             ((content references batch, style references batch), targets batch)
     """
-    data = create_gw_data(nsamples, dataset_lens, directory)
+    data = create_gw_data(directory, nsamples, dataset_lens)
     return DataLoader(data[0], batch_size=batch_size, shuffle=True), \
         DataLoader(data[1], batch_size=batch_size, shuffle=False)

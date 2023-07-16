@@ -19,7 +19,7 @@ def train_test_routine(
         state_directory: str | Path | None = "model_files",
         save_each: int = 4,
         start_from_saved_state: bool = False,
-        show_graphs: bool = True,
+        show_graphs: bool = True
 ):
     if start_from_saved_state:
         model.load_state_dict(torch.load(state_directory + "/model.pth"))
@@ -38,7 +38,7 @@ def train_test_routine(
                 content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
                 optimizer.zero_grad()
                 output_b = model(content_b, style_b)
-                loss = lossfn(target_b, output_b, simple=False)
+                loss = lossfn(target_b, output_b)
                 train_loss += loss.to("cpu")
                 train_batch += 1
                 loss.backward()
@@ -53,7 +53,7 @@ def train_test_routine(
                                                            desc=f"Epoch {epoch}: test") if show_graphs else testloader:
                     content_b, style_b, target_b = content_b.to(device), style_b.to(device), target_b.to(device)
                     output_b = model(content_b, style_b)
-                    loss = lossfn(target_b, output_b, simple=False)
+                    loss = lossfn(target_b, output_b)
                     test_loss += loss.to("cpu")
                     test_batch += 1
             test_per_batch_losses.append((test_loss / test_batch).item())

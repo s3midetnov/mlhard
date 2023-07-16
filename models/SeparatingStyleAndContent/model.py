@@ -110,10 +110,14 @@ class SeparatingStyleAndContent(nn.Module):
         return self.sigmoid(result_ims8)
 
 
-def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1., simple=True):
-    if simple:
-        return nn.L1Loss(reduction='sum')(output_img_b, true_img_b)
+def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1.):
     main_loss = torch.sum(nn.L1Loss(reduction='none')(output_img_b, true_img_b), dim=(1, 2, 3))
-    n_of_black = 1. / (torch.sum((true_img_b < 0.01).to(dtype=torch.double), dim=(1, 2, 3)) + epsilon)
-    mean_vs = nn.functional.softmax(1. - torch.mean(true_img_b, dim=(1, 2, 3)), dim=0)
-    return torch.sum(main_loss * n_of_black * mean_vs)
+    mask_black = (true_img_b < 0.99).to(dtype=torch.double)
+    n_of_black = torch.sum(mask_black, dim=(1, 2, 3)) + epsilon
+    w_st = 1. / n_of_black
+    w_b = nn.functional.softmax(torch.sum(true_img_b * mask_black, dim=(1, 2, 3)), dim=0)
+    return torch.sum(main_loss * w_st * w_b)
+
+
+def simple_l1_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor):
+    return nn.functional.l1_loss(output_img_b, true_img_b, reduction='mean')
