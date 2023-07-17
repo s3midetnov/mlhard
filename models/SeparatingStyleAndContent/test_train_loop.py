@@ -22,8 +22,8 @@ def train_test_routine(
         show_graphs: bool = True
 ):
     if start_from_saved_state:
-        model.load_state_dict(torch.load(state_directory + "/model.pth"))
-        optimizer.load_state_dict(torch.load(state_directory + "/optimizer.pth"))
+        model = torch.load(state_directory + "/model.pth")
+        optimizer = torch.load(state_directory + "/optimizer.pth")
 
     train_per_batch_losses = []
     test_per_batch_losses = []
