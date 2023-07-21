@@ -7,6 +7,13 @@ import numpy.random as npr
 
 import typing as tp
 
+from torchvision.io import read_image
+import torch
+
+
+def compare_tags(c: str, d: str):
+    return TAGS[c][0] < TAGS[d][0]
+
 
 class GoogleDataset(Dataset):
     def __init__(self, nsamples, dataset_len, directory: str | Path, train: bool):
@@ -35,65 +42,67 @@ class GoogleDataset(Dataset):
         self.style_refs: tp.List[tp.Optional[np.ndarray]] = [None for _ in range(dataset_len)]
         self.content_refs: tp.List[tp.Optional[np.ndarray]] = [None for _ in range(dataset_len)]
         for i in range(self.dataset_len):
-            ti, gi, unicode, tag = self.coord[i]
+            ti, gi, unicode, tag = self.coord[self.targets[i]]
 
-            _content_refs = npr.choice(a=tag_to_indices[tag], size=self.nsamples)
-            self.content_refs[i] = _content_refs + _content_refs >= ti
+            _content_refs = npr.choice(a=len(tag_to_indices[tag]) - 1, size=self.nsamples, replace=False)
 
-            _style_refs = npr.choice(a=typefaces_size[i], size=self.nsamples)
+            coincident_ti = None
+            for j in range(self.nsamples):
+                if tag_to_indices[tag][_content_refs[j]] == ti:
+                    coincident_ti = j
+
+            if coincident_ti is not None:
+                _content_refs += _content_refs >= _content_refs[coincident_ti]
+
+            for j in range(self.nsamples):
+                _content_refs[j] = tag_to_indices[tag][_content_refs[j]]
+
+            self.content_refs[i] = _content_refs
+
+            _style_refs = npr.choice(a=typefaces_size[ti] - 1, size=self.nsamples, replace=False)
+            _style_refs = _style_refs + (_style_refs >= gi)
+
             whole_tag = self.all_typefaces[ti].split('_')[-1]
             for j in range(self.nsamples):
                 _style_refs[j] = self.return_unicode(whole_tag, _style_refs[j])
-            self.style_refs[i] = _style_refs[i] + _style_refs[i]
+            self.style_refs[i] = _style_refs
+
+    def __getitem__(self, idx):
+        ti, gi, unicode, tags = self.coord[self.targets[idx]]
+        tp_name = self.all_typefaces[ti]
+        style_coords = self.style_refs[idx]  # unicodes
+        tp_names = [self.all_typefaces[self.content_refs[idx][i]] for i in range(self.nsamples)]
+
+        def construct_path(typeface_name, unicode_int):
+            return (self.directory / typeface_name / f"{typeface_name}_{unicode_int}.png").as_posix()
+
+        return (torch.stack([
+            read_image(construct_path(tp_names[r], unicode)) for r in range(self.nsamples)
+        ]), torch.stack([
+            read_image(construct_path(tp_name, style_coords[r])) for r in range(self.nsamples)
+        ])),read_image(construct_path(tp_name, unicode))
 
     @staticmethod
     def return_unicode(tags: str, order: int):
-        tcode = order
-        if 'd' in tags:
-            if tcode < 10: return 48 + tcode
-            else: tcode -= 10
-        if 'L' in tags:
-            if tcode < 26: return 65 + tcode
-            else: tcode -= 26
-        if 'l' in tags:
-            if tcode < 26: return 97 + tcode
-            else: tcode -= 26
-        if 'G' in tags:
-            if tcode < 17: return 913 + tcode
-            elif tcode < 24: return 913 + tcode + 1
-            else: tcode -= 24
-        if 'g' in tags:
-            if tcode < 24: return 945 + tcode
-            else: tcode -= 24
-        if 'C' in tags:
-            if tcode < 32: return 1040 + tcode
-            else: tcode -= 32
-        return 1072 + tcode
-
+        sorted_tags = list(sorted(tags, key=lambda t: TAGS[t][0]))
+        copy_order = order
+        for tag in sorted_tags:
+            if len(TAGS[tag]) <= copy_order:
+                copy_order -= len(TAGS[tag])
+            else:
+                return TAGS[tag][0] + copy_order + (1 if copy_order > 16 and tag == 'G' else 0)
+        print(tags, order)
+        print(sorted_tags)
 
     @staticmethod
     def return_order(tags: str, unicode: int):
-        tcode = 0
-        if 'd' in tags:
-            if unicode < 58: return unicode - 48 + tcode
-            else: tcode += 10
-        if 'L' in tags:
-            if unicode < 91: return unicode - 65 + tcode
-            else: tcode += 26
-        if 'l' in tags:
-            if unicode < 123: return unicode - 97 + tcode
-            else: tcode += 26
-        if 'G' in tags:
-            if unicode < 930: return unicode - 913 + tcode
-            elif unicode < 938: return unicode - 914 + tcode
-            else: tcode += 24
-        if 'g' in tags:
-            if unicode < 970: return unicode - 945 + tcode
-            else: tcode += 24
-        if 'C' in tags:
-            if unicode < 1072: return unicode - 1040 + tcode
-            else: tcode += 32
-        return unicode - 1072 + tcode
+        unicode_tag = GoogleDataset.return_tag(unicode)
+        order = 0
+        for tag in tags:
+            if compare_tags(unicode_tag, tag):
+                order += len(TAGS[tag])
+        order += unicode - TAGS[unicode_tag][0]
+        return order - (TAGS['G'][0] <= unicode <= TAGS['G'][-1])
 
     @staticmethod
     def return_tag(x: int):
@@ -115,5 +124,13 @@ class GoogleDataset(Dataset):
     def __len__(self):
         return self.dataset_len
 
-    def __getitem__(self, index):
-        pass
+
+def create_google_datasets(directory: str, nsamples=10, dataset_lens=(10000, 2000)):
+    return GoogleDataset(nsamples, dataset_lens[0], directory, train=True), \
+            GoogleDataset(nsamples, dataset_lens[1], directory, train=False)
+
+
+def create_google_dataloaders(directory: str, nsamples=10, batch_size=4, dataset_lens=(10000, 2000)):
+    data = create_google_datasets(directory, nsamples, dataset_lens)
+    return DataLoader(data[0], batch_size=batch_size, shuffle=True), \
+        DataLoader(data[1], batch_size=batch_size, shuffle=False)
