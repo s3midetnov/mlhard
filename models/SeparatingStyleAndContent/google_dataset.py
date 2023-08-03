@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
-from ttf_to_png import TAGS
+from models.SeparatingStyleAndContent.ttf_to_png import TAGS
 import os
 import numpy as np
 import numpy.random as npr
@@ -78,9 +78,10 @@ class GoogleDataset(Dataset):
 
         return (torch.stack([
             read_image(construct_path(tp_names[r], unicode)) for r in range(self.nsamples)
-        ]), torch.stack([
+        ]).to(dtype=float) / 255., torch.stack([
             read_image(construct_path(tp_name, style_coords[r])) for r in range(self.nsamples)
-        ])),read_image(construct_path(tp_name, unicode))
+        ]).to(dtype=float) / 255.),\
+            read_image(construct_path(tp_name, unicode)).to(dtype=float) / 255.
 
     @staticmethod
     def return_unicode(tags: str, order: int):

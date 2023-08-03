@@ -9,6 +9,9 @@ class SeparatingStyleAndContent(nn.Module):
         self.nsamples = nsamples
         self.C = C
 
+        self.content_flatten = nn.Flatten(1, 2)
+        self.style_flatten = nn.Flatten(1, 2)
+
         self.style1 = self.create_encoder_layer(C, first_layer=True)
         self.style2 = self.create_encoder_layer(2 * C)
         self.style3 = self.create_encoder_layer(4 * C)
@@ -38,11 +41,19 @@ class SeparatingStyleAndContent(nn.Module):
         self.decoder7 = self.create_decoder_layer(2 * C, output_padding=True)
         self.decoder8 = self.create_decoder_layer(C, last_layer=True)
 
+        self.final_conv = nn.Conv2d(
+            in_channels=1 + self.nsamples,
+            out_channels=1,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            dtype=torch.double
+        )
+
         self.sigmoid = nn.Sigmoid()
 
     def create_encoder_layer(self, out_channels, increase_channels=True, first_layer=False, last_layer=False):
         return nn.Sequential(
-            nn.Flatten(1, 2) if first_layer else nn.Identity(),
             nn.Conv2d(
                 kernel_size=3 if not first_layer else 5,
                 stride=2 if not first_layer else 1,
@@ -79,6 +90,10 @@ class SeparatingStyleAndContent(nn.Module):
         )
 
     def forward(self, content_ims: torch.Tensor, style_ims: torch.Tensor):
+
+        content_ims = self.content_flatten(content_ims)
+        style_ims = self.style_flatten(style_ims)
+
         content_ims1 = self.content1(content_ims)
         content_ims2 = self.content2(content_ims1)
         content_ims3 = self.content3(content_ims2)
@@ -106,8 +121,9 @@ class SeparatingStyleAndContent(nn.Module):
         result_ims6 = self.decoder6(torch.cat(tensors=(result_ims5, content_ims3), dim=1))
         result_ims7 = self.decoder7(torch.cat(tensors=(result_ims6, content_ims2), dim=1))
         result_ims8 = self.decoder8(torch.cat(tensors=(result_ims7, content_ims1), dim=1))
+        result_final = self.final_conv(torch.cat(tensors=(result_ims8, content_ims), dim=1))
 
-        return self.sigmoid(result_ims8)
+        return self.sigmoid(result_final)
 
 
 def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor, epsilon=1.):
@@ -117,6 +133,15 @@ def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: to
     w_st = 1. / n_of_black
     w_b = nn.functional.softmax(torch.sum(true_img_b * mask_black, dim=(1, 2, 3)), dim=0)
     return torch.sum(main_loss * w_st * w_b)
+
+
+def separating_style_and_content_antiwhite_loss(true_img_b: torch.tensor, output_img_b: torch.Tensor):
+    diff_b = nn.functional.leaky_relu(input=output_img_b - true_img_b, negative_slope=-0.1)
+
+    main_loss = torch.sum(diff_b, dim=(1, 2, 3))
+    mask_black = (true_img_b < 0.99).to(dtype=torch.double)
+    w_b = nn.functional.softmax(torch.sum(-true_img_b * mask_black, dim=(1, 2, 3)), dim=0)
+    return torch.sum(main_loss * w_b)
 
 
 def simple_l1_loss(true_img_b: torch.Tensor, output_img_b: torch.Tensor):
