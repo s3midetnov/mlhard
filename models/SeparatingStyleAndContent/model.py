@@ -135,6 +135,24 @@ def separating_style_and_content_loss(true_img_b: torch.Tensor, output_img_b: to
     return torch.sum(main_loss * w_st * w_b)
 
 
+def antiwhite_loss(slope):
+
+    def lossfn(true_img_b, output_img_b):
+        diff_b = nn.functional.leaky_relu(input=output_img_b - true_img_b, negative_slope=-slope)
+        return torch.sum(diff_b)
+
+    return lossfn
+
+
+def antiblack_loss(slope):
+
+    def lossfn(true_img_b, output_img_b):
+        diff_b = nn.functional.leaky_relu(input=true_img_b - output_img_b, negative_slope=-slope)
+        return torch.sum(diff_b)
+
+    return lossfn
+
+
 def separating_style_and_content_antiwhite_loss(true_img_b: torch.tensor, output_img_b: torch.Tensor):
     diff_b = nn.functional.leaky_relu(input=output_img_b - true_img_b, negative_slope=-0.1)
 
